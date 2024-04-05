@@ -1,34 +1,59 @@
-import fastify from "fastify"
-import { z } from "zod"
-import { PrismaClient } from "@prisma/client"
+import { fastify } from "fastify";
+import { fastifyCors } from "@fastify/cors";
+import { fastifySwagger } from "@fastify/swagger";
+import { fastifySwaggerUi } from "@fastify/swagger-ui";
+import {
+  serializerCompiler,
+  validatorCompiler,
+  jsonSchemaTransform,
+} from "fastify-type-provider-zod";
+import { createEvent } from "./routes/create-event";
+import { registerForEvent } from "./routes/register-for-event";
+import { getEvent } from "./routes/get-event";
+import { getAttendeeBadge } from "./routes/get-attendee-badge";
+import { checkIn } from "./routes/check-in";
+import { getEventAttendees } from "./routes/get-event-attendees";
+import { errorHandler } from "./error-handler";
 
-const app = fastify()
+const app = fastify();
 
-const prisma = new PrismaClient({
-    log: ['query']
+app.register(fastifyCors, {
+  origin: "*" // Apenas em desenvolvimento. Em produção utiliza-se o domínio do front-end.
 })
 
-app.post("/events", async (request, reply) => {
-    const createEventSchema = z.object({
-        title: z.string().min(4),
-        details: z.string().nullable(),
-        maximumAttendees: z.number().int().positive().nullable()
-    })
+app.register(fastifySwagger, {
+  swagger: {
+    consumes: ["application/json"],
+    produces: ["application/json"],
+    info: {
+      title: "pass.in",
+      description:
+        "Especificações da API para o back-end da aplicação pass.in construída durante o NLW Unite da Rocketseat.",
+      version: "1.0.0",
+    },
+  },
+  transform: jsonSchemaTransform,
+});
 
-    const data = createEventSchema.parse(request.body)
+app.register(fastifySwaggerUi, {
+  routePrefix: "/docs",
+});
 
-    const event = await prisma.event.create({
-        data: {
-            title: data.title,
-            details: data.details,
-            maximumAttendees: data.maximumAttendees,
-            slug: new Date().toISOString()
-        }
-    })
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
 
-    return reply.status(201).send({ eventId: event.id })
-})
+app.register(createEvent);
+app.register(getEvent);
+app.register(registerForEvent);
+app.register(getEventAttendees);
+app.register(getAttendeeBadge);
+app.register(checkIn);
 
-app.listen({ 
-    port: 3333
-}).then(() => console.log("HTTP server running!"))
+app.setErrorHandler(errorHandler)
+
+app
+  .listen({
+    port: 3333,
+    host: "0.0.0.0"
+  })
+  .then(() => console.log("HTTP server running!"));
