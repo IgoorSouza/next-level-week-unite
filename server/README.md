@@ -1,0 +1,1 @@
+Para executar a aplicação em modo de desenvolvimento, utilize "npm run dev". Para executá-la em modo de produção, utilize "npm run build" + "npm run start".
